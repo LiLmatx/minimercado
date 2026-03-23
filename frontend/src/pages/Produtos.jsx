@@ -9,6 +9,7 @@ function Produtos() {
   const [mensagem, setMensagem] = useState({ texto: '', tipo: '' })
   const [novaCategoria, setNovaCategoria] = useState('')
   const [mostrarCategoria, setMostrarCategoria] = useState(false)
+  const [editandoCategoria, setEditandoCategoria] = useState(null)
 
   useEffect(() => {
     carregarProdutos()
@@ -75,18 +76,36 @@ function Produtos() {
   }
 
   async function salvarCategoria(e) {
-    e.preventDefault()
-    try {
+  e.preventDefault()
+  try {
+    if (editandoCategoria) {
+      await api.put(`/categorias/${editandoCategoria}`, { nome: novaCategoria })
+      setMensagem({ texto: 'Categoria atualizada com sucesso!', tipo: 'sucesso' })
+    } else {
       await api.post('/categorias', { nome: novaCategoria })
       setMensagem({ texto: 'Categoria criada com sucesso!', tipo: 'sucesso' })
-      setNovaCategoria('')
-      setMostrarCategoria(false)
-      carregarCategorias()
-    } catch (err) {
-      setMensagem({ texto: err.response?.data?.erro || 'Erro ao criar categoria.', tipo: 'erro' })
     }
-    setTimeout(() => setMensagem({ texto: '', tipo: '' }), 3000)
+    setNovaCategoria('')
+    setEditandoCategoria(null)
+    setMostrarCategoria(false)
+    carregarCategorias()
+  } catch (err) {
+    setMensagem({ texto: err.response?.data?.erro || 'Erro ao salvar categoria.', tipo: 'erro' })
   }
+  setTimeout(() => setMensagem({ texto: '', tipo: '' }), 3000)
+}
+
+async function excluirCategoria(categoria) {
+  if (!confirm(`Tem certeza que deseja excluir a categoria "${categoria.nome}"?`)) return
+  try {
+    await api.delete(`/categorias/${categoria.id}`)
+    setMensagem({ texto: 'Categoria excluída com sucesso!', tipo: 'sucesso' })
+    carregarCategorias()
+  } catch (err) {
+    setMensagem({ texto: 'Erro ao excluir categoria. Verifique se não há produtos vinculados.', tipo: 'erro' })
+  }
+  setTimeout(() => setMensagem({ texto: '', tipo: '' }), 3000)
+}
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -99,26 +118,47 @@ function Produtos() {
       </div>
 
       {/* Form nova categoria */}
-      {mostrarCategoria && (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4">
-          <form onSubmit={salvarCategoria} className="flex gap-3 items-end">
-            <div className="flex-1">
-              <label className="text-xs font-semibold text-indigo-600 uppercase mb-1 block">Nome da categoria</label>
-              <input value={novaCategoria} onChange={e => setNovaCategoria(e.target.value)}
-                required placeholder="ex: Frios, Cereais..."
-                className="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-            </div>
-            <button type="submit"
-              className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-xl text-sm transition-all">
-              Criar
+{mostrarCategoria && (
+  <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4">
+    <h4 className="text-sm font-semibold text-indigo-700 mb-3">
+      {editandoCategoria ? 'Editar categoria' : 'Nova categoria'}
+    </h4>
+    <form onSubmit={salvarCategoria} className="flex gap-3 items-end">
+      <div className="flex-1">
+        <input value={novaCategoria} onChange={e => setNovaCategoria(e.target.value)}
+          required placeholder="Nome da categoria..."
+          className="w-full px-3 py-2 rounded-lg border border-indigo-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+      </div>
+      <button type="submit"
+        className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-xl text-sm transition-all">
+        {editandoCategoria ? 'Salvar' : 'Criar'}
+      </button>
+      <button type="button" onClick={() => { setMostrarCategoria(false); setEditandoCategoria(null); setNovaCategoria('') }}
+        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold rounded-xl text-sm transition-all">
+        Cancelar
+      </button>
+    </form>
+
+    {/* Lista de categorias existentes */}
+    <div className="mt-4 space-y-2">
+      {categorias.map(c => (
+        <div key={c.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-indigo-100">
+          <span className="text-sm text-gray-700">{c.nome}</span>
+          <div className="flex gap-2">
+            <button onClick={() => { setEditandoCategoria(c.id); setNovaCategoria(c.nome) }}
+              className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded text-xs font-medium transition-colors">
+              Editar
             </button>
-            <button type="button" onClick={() => setMostrarCategoria(false)}
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold rounded-xl text-sm transition-all">
-              Cancelar
+            <button onClick={() => excluirCategoria(c)}
+              className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded text-xs font-medium transition-colors">
+              Excluir
             </button>
-          </form>
+          </div>
         </div>
-      )}
+      ))}
+    </div>
+  </div>
+)}
 
       {/* Formulário produto */}
       <div className={`rounded-2xl shadow-sm border p-6 ${editando ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-100'}`}>
